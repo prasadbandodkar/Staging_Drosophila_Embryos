@@ -4,7 +4,7 @@ clc
 
 foldername  = '/Volumes/Extreme/Projects/staging';
 
-path_data = [foldername, '/raw'];
+path_raw  = [foldername, '/raw'];
 path_img  = [foldername, '/img'];  
 xls       = readtable('Data.xlsx');
 xls       = table2struct(xls);
@@ -19,10 +19,12 @@ warning('off', 'MATLAB:MKDIR:DirectoryExists');
 nFiles = length(xls);
 for i=1:nFiles
    fprintf('Running: %i/%i \t\n',i,nFiles)
-   path_raw = xls(i).filelocation;
+
+   % path of input raw file
+   path_rawi = xls(i).filelocation;
    
    
-   % Get an image location based on filelocation
+   % path of output image files
    c   = strsplit(path_raw,{filesep,'.'});
    i0  = find(strcmp(c,'raw'));
    path_imgi = [path_img,'/',num2str(i),'_',c{i0+1},'_',c{end-1}];
@@ -30,5 +32,5 @@ for i=1:nFiles
    
 
    % Get raw images
-   Raw2Tiff(path_raw,path_imgi);
+   Raw2Img(path_rawi,path_imgi);
 end

@@ -4,7 +4,7 @@ close all
 
 
 foldername  = '/Volumes/Extreme/Projects/staging';
-path_data   = [foldername, '/raw/'];
+path_raw   = [foldername, '/raw/'];
 nInterp     = 10;
 scaleTo     = 4.4e-7;
 xls         = readtable('Data.xlsx');
@@ -21,7 +21,7 @@ for i=1:nFiles
    filelocation = xls(i).filelocation;
    nc14start    = xls(i).nc14start;
    nc14end      = xls(i).nc14end;
-   makeTrainValTestData(filelocation,nc14start,nc14end,path_data,scaleTo,nInterp);
+   makeTrainValTestData(filelocation,nc14start,nc14end,path_raw,scaleTo,nInterp);
 end
 
 
