@@ -27,38 +27,10 @@ for i=1:nSeries
     end
     imdata{i}.chnum = chnum;
     imdata{i}.znum  = znum;
-    imdata{i}.tnum = tnum;
-    metadata{i}    = char(imraw{i,2});
+    imdata{i}.tnum  = tnum;
+    metadata{i}     = char(imraw{i,2});
 end
 
-
-
-
-%
-% Get Metadata
-%
-% metadata    = [];
-% count       = 1;
-% for j=1:nSeries
-%     data = char(meta{j});
-%     data(data=='{' | data=='{') = [];
-%     data        = strsplit(data,',');
-%     for i=1:length(data)
-%         c = data{i};
-%         c(c=='|') = '.';
-%         c(c=='_' | c=='#' | c=='-') = [];
-%         if c(1)==' '
-%             c(1) = [];
-%         end
-%         c(c==' ') = '_';
-%         c = strsplit(c,'=');
-%         if length(c) == 2
-%             metadata{count,1} = c{1};
-%             metadata{count,2} = c{2};
-%             count = count + 1;
-%         end   
-%     end
-% end
 
 end
 
@@ -69,7 +41,6 @@ i0 = find(in=='.');
 in = in(i0+1:end);
 in(in==';') = [];
 in(in==' ') = '_';
-
 if contains(in,c) 
     i0 = find(in==c);
     i0 = i0(end);

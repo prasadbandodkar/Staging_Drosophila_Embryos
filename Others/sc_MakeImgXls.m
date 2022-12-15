@@ -60,7 +60,7 @@ end
 % Save as xls
 %
 T = table(filelocation, nc14start, nc14end, 'VariableNames',["filelocation", "nc14start", "nc14end"]);
-writetable(T,'Data.xlsx')
+writetable(T,'Data_raw.xlsx')
 
 
 

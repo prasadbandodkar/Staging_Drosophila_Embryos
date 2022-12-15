@@ -1,9 +1,9 @@
-function MakeTrainValTestData(filelocation,nc14start,nc14end,path_data,scaleTo,nInterp)
+function Img2Data(filelocation,nc14start,nc14end,path_data,scaleTo,nInterp)
 
 %
 % Read image
 %
-[IM,metadata] = readBioImage(filelocation)
+[IM,metadata] = imread(filelocation)
 
 
 %

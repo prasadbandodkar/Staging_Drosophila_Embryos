@@ -9,30 +9,15 @@ path_data   = [foldername, '/data'];
 
 
 
-%
-% settings
-%
-nInterp      = 10;
-scaleTo      = 4.4e-7;
-
-
-
-%
-% Load data from excel sheet
-%
-xls         = readtable('Data_edited.xlsx');
-xls         = table2struct(xls);
-
-
 folders     = dir(path_img);
+
 
 %
 % Loop over all files
 %
-nFiles       = length(xls);
+nFiles       = length(folders);
 for i=1:nFiles
    fprintf('Running: %i/%i \t\n',i,nFiles)
-   rawfilename = xls(i).filelocation;
 
    % path of input img file
    imgfilename = folders(i).name;
