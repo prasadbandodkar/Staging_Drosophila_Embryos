@@ -1,40 +1,25 @@
-function Img2Data(filelocation,nc14start,nc14end,path_data,scaleTo,nInterp)
+function Img2Data(path_img,path_data,sstart,send,tstart,tend,ch)
 
-%
-% Read image
-%
-[IM,metadata] = imread(filelocation)
+    files = dir(path_img);
 
-
-%
-% Image pre-processing
-%
-IM            = cleanImage(IM,numch);            % Subtract background
-IM            = squeeze(IM(:,:,nucch,:));
-IM            = reshape(IM,H,W,nZstacks,[]);
-c             = strsplit(fileLocation,{'/','\','.'});
-filename      = [num2str(slno),'_',char(c(end-1))]; 
-
-
-%
-% Get metadata
-%
-
-
-%
-% Loop
-%
-for i=nc14start:nc14end
-    istr  = num2str(i);
-    numID = (i-ncstart)/(ncend - ncstart);
-
-
-
-    
-end
-
-
-
-
+    for i=1:length(files)
+       name = files(i).name;
+       if contains(name,'png')
+            split = strsplit(name,{'_','.'});
+            s = str2double(split{1}(2:end));
+            c = str2double(split{2}(2:end));
+            t = str2double(split{4}(2:end));
+            if s>=sstart && s<=send && t>=tstart && t<=tend && c==ch
+                path_datai = [path_data,'/',name];
+                path_imgi  = [files(i).folder,'/',files(i).name];
+                copyfile(path_imgi,path_datai)
+            end
+       end
+       if contains(name,'csv')
+            path_datai = [path_data,'/',name];
+            path_imgi  = [files(i).folder,'/',files(i).name]; 
+            copyfile(path_imgi,path_datai)
+       end
+    end
 end
 
