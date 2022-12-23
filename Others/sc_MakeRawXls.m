@@ -1,10 +1,10 @@
-import functions.*
 
 foldername  = '/Volumes/Extreme/Projects/staging';
 
-path_data = [foldername, '/raw/'];
-datafiles = extractFileLocations(path_data,["lif","lsm","czi"]);
-xlsfiles  = extractFileLocations(path_data,"xlsx");
+path_org = [foldername, '/org/'];
+path_raw = [foldername, '/raw/'];
+datafiles = extractFileLocations(path_org,["lif","lsm","czi"]);
+xlsfiles  = extractFileLocations(path_org,"xlsx");
 
 
 %
@@ -43,24 +43,36 @@ nc14end   = nc14end(use);
 % Get filenames from xls and match with the corresponding data file
 %
 filelocation = [];
-for i=1:length(filenames)
+nFiles = length(filenames);
+for i=1:nFiles
+    disp(['running: ',num2str(i),'/',num2str(nFiles)])
     file = filenames(i);
     file = strsplit(file,{'/','\'});
     file = file(end);
     i0 = contains(datafiles,file);
     if any(i0)
-        filelocation = [filelocation; datafiles(i0)];
+        c = char(datafiles(i0));
+        c = strsplit(c,'/');
+        c = c{end};
+        c(c==' ' | c==';') = '_';
+        file  = string([path_raw,num2str(i),'_',char(c)]);
+         copyfile(datafiles(i0),file)
+        filelocation = [filelocation; file];
     else
         filelocation = [filelocation; ""];
     end
 end
 
 
+% move slno to first column
+xls = movevars(xls,'slno','Before','filelocation');
+
+
 %
 % Save as xls
 %
 T = table(filelocation, nc14start, nc14end, 'VariableNames',["filelocation", "nc14start", "nc14end"]);
-writetable(T,'Data_raw.xlsx')
+writetable(T,'raw.xlsx')
 
 
 

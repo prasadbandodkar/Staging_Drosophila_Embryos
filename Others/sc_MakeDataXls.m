@@ -5,6 +5,7 @@ close all
 foldername  = '/Volumes/Extreme/Projects/staging';
 path_data   = [foldername, '/data'];  
 
+warning('off')
 
 % get data files
 folders = dir(path_data);
@@ -26,11 +27,18 @@ for i=1:length(folders)
 
         % make excel columns
         c  = strsplit(name,'_');
-        c  = strjoin(c(3:end),'_');
+        filetype = c{end};
+        c  = strjoin(c(1:end-1),'_');
         i0 = find(cell2mat(cellfun(@(x) contains(x,c),filelocation,'UniformOutput',false)));
         
-        xls(count,:) = imgxls(i0,:);
+        if count==1
+            xls(count,:) = imgxls(i0,:);
+        else
+            xls(count,1:end-1) = imgxls(i0,:);
+        end
         xls{count,"filelocation"} = {path_datai};
+        xls{count,"filetype"} = filetype;
+        
         count = count + 1;      
     end
 end
@@ -40,6 +48,9 @@ end
 slno = [xls.slno];
 [~,i0] = sort(slno);
 xls = xls(i0,:);
+
+% move slno to first column
+xls = movevars(xls,'slno','Before','filelocation');
 
 
 % save data to excel sheet

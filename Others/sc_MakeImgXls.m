@@ -30,9 +30,10 @@ for i=1:length(folders)
 
         % make excel columns
         c  = strsplit(name,'_');
-        c  = strjoin(c(3:end),'_');
+        c  = strjoin(c(1:end-1),'_');
         i0 = find(cell2mat(cellfun(@(x) contains(x,c),filelocation,'UniformOutput',false)));
         
+        slno(count) = i0;
         xls(count,:) = rawxls(i0,:);
         xls{count,"filelocation"} = {path_imgi};
         count = count + 1;      
@@ -41,10 +42,12 @@ end
 
 
 % sort data according to slno
-slno = [xls.slno];
-[~,i0] = sort(slno);
+[slno,i0] = sort(slno);
 xls = xls(i0,:);
+xls.slno = slno';
 
+% move slno to first column
+xls = movevars(xls,'slno','Before','filelocation');
 
 % save data to excel sheet
 writetable(xls,'Xls/img.xlsx')
