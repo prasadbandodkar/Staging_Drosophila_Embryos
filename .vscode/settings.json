@@ -1,3 +1,5 @@
 {
-    "python.analysis.typeCheckingMode": "basic"
+    "python.analysis.typeCheckingMode": "basic",
+    "CodeGPT.apiKey": "Ollama",
+    "python.analysis.extraPaths": ["/Users/prasadbandodkar/.pyenv/versions/3.10.8/envs/staging/bin"]
 }

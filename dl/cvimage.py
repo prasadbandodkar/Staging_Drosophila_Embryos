@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from functions import *
 
 
-class CVImage:
+class EmbryoImage:
     def __init__(self, I, id):
         self.I          = I
         self.id         = id
@@ -42,7 +42,7 @@ class CVImage:
         The border is filled with the constant value of 0.
         """
         self.I      = cv.resize(self.I, size, interpolation=cv.INTER_AREA)
-        self.I      = cv.copyMakeBorder(self.I, padding, padding, padding, padding, cv.BORDER_CONSTANT, value=0)     # type: ignore
+        self.I      = cv.copyMakeBorder(self.I, padding, padding, padding, padding, cv.BORDER_REPLICATE)     # type: ignore
         
         # properties of the image
         self.height = self.I.shape[0]
@@ -119,7 +119,7 @@ class CVImage:
 
         plt.tight_layout()
         plt.show()
-        print('done')
+        # print('done')
   
     
     def segment_embryo_image(self, plot_images=False):
@@ -205,10 +205,9 @@ class CVImage:
         
         self.Ilabel = Itmp
 
-        print('done')
+        # print('done')
         
         
-     
     def border_finder(self, npoints = 100):
         self.npoints = npoints 
         
@@ -266,7 +265,7 @@ class CVImage:
      
     
 
-class NuclearLayer(CVImage):
+class NuclearLayer(EmbryoImage):
     def __init__(self, I, id):
         super().__init__(I, id)
         self.Inl = np.empty((0, 0))
@@ -312,11 +311,11 @@ class NuclearLayer(CVImage):
         dy = np.diff(y_nuc, axis=0)
         ds = np.round(np.sqrt(dx**2 + dy**2)).astype(int)
         w = np.sum(ds)
-        U = np.zeros((depthInImage, w, o))
+        U = np.zeros((depthInImage, w, o), dtype=np.uint8)
         ustart = 0
 
         for i in range(ns):
-            print(i)
+            # print(i)
             I1 = I[yL[i]:yU[i], xL[i]:xU[i], :]
             
             # plot I1
@@ -329,8 +328,8 @@ class NuclearLayer(CVImage):
             outpts = np.float32(op)
             
             # print inputs and outputs
-            print(inpts)
-            print(outpts)
+            # print(inpts)
+            # print(outpts)
 
             M = cv.getPerspectiveTransform(inpts, outpts)       # type: ignore
 
@@ -348,58 +347,59 @@ class NuclearLayer(CVImage):
             # plt.imshow(U[:, :, 0], cmap='gray')
         
             ustart = ufinish
-
+        
         self.Inl = U
-        
-            
+        # print dtype of Inl and U
+        # print(self.Inl.dtype)
+        # print(U.dtype)
         
 
+
+
+class CVImage(NuclearLayer):
+    def __init__(   self, 
+                    I, 
+                    id, 
+                    size = (512, 512), 
+                    padding = 44,
+                    plot_images = False, 
+                    npoints = 100,
+                    inward = 40,
+                    outward = -24,
+                    length = None):
+        super().__init__(I, id)
+        self.image       = []
+        self.id          = id
+        self.size        = size
+        self.padding     = padding
+        self.plot_images = plot_images
+        self.npoints     = npoints
+        self.inward      = inward
+        self.outward     = outward
+        self.length      = length
         
+        self.get_unrolled_image()
+    
+    def get_unrolled_image(self):
+        self.preprocess(size = self.size, padding = self.padding)
+        self.segment_embryo_image(plot_images=self.plot_images)    
+        self.border_finder(npoints = self.npoints)
+        self.extend_border(inward = self.inward, outward = self.outward)
+        self.unroll(self.x, self.y)
+    
+        # If length is not specified, use the full width of the unrolled image
+        length = self.length
+        if length is None:
+            length = self.Inl.shape[1]
+        self.image = self.Inl[:, :length, :]
+
+        
+        
+        
+        
+        
+                
 
 if __name__ == "__main__":
     
-    # file_name = "/Volumes/X2/Projects/staging/Data/data/1_1_Embryo_1_end_of_nc12-gastrulation_czi/s1_c2_z1_t17.png"
-    file_name = "s1_c2_z1_t16.png"
-    # file_name = "s5_c1_z1_t65.png"
-    # file_name = "s3_c1_z1_t97.png"
-    file_name = "s5_c1_z1_t150.png"
-    
-    from matplotlib import pyplot as plt
-    print(cv.__version__)
-    
-    # process image
-    image = NuclearLayer(file_name)
-    image.preprocess(size=(512, 512), padding=88)
-    image.segment_embryo_image()    
-    image.border_finder(npoints = 100)
-    image.extend_border(inward=15, outward=-25)
-    
-    # make plots:
-    plt.figure(figsize=(10, 10))
-
-    # Plot the original image
-    plt.subplot(1, 2, 1)
-    plt.imshow(image.I, cmap='gray')
-    plt.plot(image.xext, image.yext, '.', color='red', markersize=1)        # type: ignore
-    plt.plot(image.xint, image.yint, '.', color='green', markersize=1)      # type: ignore
-    
-    # draw lines between correspoinding points of xext, yext and xint, yint using self.npoints
-    for i in range(image.npoints+1):  # type: ignore
-        plt.plot([image.xext[i], image.xint[i]], [image.yext[i], image.yint[i]], linewidth=1) # type: ignore
-
-    # Plot the seglabel image
-    plt.subplot(1, 2, 2)
-    plt.imshow(image.Ilabel, cmap='gray')                           # type: ignore
-    for i in range(image.npoints):  # type: ignore
-        plt.plot([image.xext[i], image.xint[i]], [image.yext[i], image.yint[i]], linewidth=1) # type: ignore
-
-    
-    image.unroll(image.x, image.y)
-    
-    # // plot self.Inl
-    plt.figure(figsize=(10, 10))
-    plt.imshow(image.Inl[:, :, 0], cmap='gray')
-    plt.show()
-    
-    
-    print("Done")
+    print("Hello from CVImage")

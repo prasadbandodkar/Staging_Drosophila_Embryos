@@ -1,42 +1,39 @@
-# Import local modules
+# Imports
 #
-
-from data import Data
-from tfimage import TFImage
-from cvimage import NuclearLayer
-from matplotlib import pyplot as plt
+from sdata import SData
+from cvimage import CVImage
+from matplotlib import pyplot as plt    # type: ignore
 import random
 
-# set seed for the random number generator
-#
-random.seed(99)
+# set values
+random.seed(4)
+test = [6,7]
+val  = [8,9]
 
+
+# get data
 sys_folder  = '/Volumes/X2/Projects/staging/Data/'
 data_folder = sys_folder + 'data/'
+d = SData(data_folder, test, val)
 
-# some example data
-#
-test = [6,7]
-val = [8,9]
-
-# call the Data class
-#
-d = Data(data_folder)
-d.train_test_val_dir(test, val)
-d.train_test_val_data()
 
 # get random image
-I, id = d.get_random_image('train')
+I, id, folder, idx = d.get_random_image('test')
 print(I.shape)
 print(id)
+print(folder)
+print(idx)
 
-# Process the image
-#
-image = NuclearLayer(I, id)
-image.preprocess(size=(512, 512), padding=0)
-image.segment_embryo_image(plot_images=True)
-image.border_finder(npoints = 100)
-image.extend_border(inward=35, outward=-15)
+
+# create image
+size        = (512, 512)
+padding     = 44
+plot_images = True
+npoints     = 100
+inward      = 40
+outward     = -24
+image = CVImage(I, id, size, padding, plot_images, npoints, inward, outward)
+
 
 
 # visualize the image
@@ -61,14 +58,15 @@ for i in range(image.npoints):  # type: ignore
     plt.plot([image.xext[i], image.xint[i]], [image.yext[i], image.yint[i]], linewidth=1) # type: ignore
 
 
-image.unroll(image.x, image.y)
+# print image dtype
+print(image.Inl.dtype)
 
 # // plot self.Inl
+# make folder new window
 plt.figure(figsize=(10, 10))
 plt.imshow(image.Inl[:, :, 0], cmap='gray')
 plt.show()
 
-
-plt.close('all')
+# plt.close('all')
 
 print("Done")
