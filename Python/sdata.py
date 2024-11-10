@@ -5,13 +5,18 @@
 #
 
 import os, sys
-import random
 
 import pandas as pd
+import numpy as np
 import cv2 as cv
 
-from tfimage import TFImage
-from cvimage import CVImage
+# from Python.tfimage import TFImage
+from Python.cvimage import CVImage
+from Python.torchimage import TorchImage
+
+import torch
+from torch.utils.data import Dataset
+import random
 
 class SData:
     def __init__(self, path, test = [], val = [], ignore = []):
@@ -20,6 +25,7 @@ class SData:
         self.val_list    = []
         self.test_list   = []
         self.ignore_list = []
+        
         self.train_data  = {}
         self.val_data    = {}
         self.test_data   = {}
@@ -159,23 +165,11 @@ class SData:
             raise ValueError("list_type must be 'train', 'test', or 'val'")
 
         data    = list_dict[list_type]
-        rfolder = random.choice(list(data.keys()))
-        idx     = random.randint(0, len(data[rfolder].index) - 2)
+        rfolder = torch.randint(len(data.keys()), (1,)).item()
+        # rfolder = random.choice(list(data.keys()))
         
-        # print(len(data[rfolder].index))
-        # print(f'Random folder: {rfolder}, Random idx: {idx}')
         
-        I1, id1 = self.get_raw_image(rfolder, idx, list_type)
-        I2, id2 = self.get_raw_image(rfolder, idx+1, list_type)
-        
-        # interpolate between I1 and I2. Also, we need to interpolate the id
-        # get a random number between 0 and 1
-        alpha = random.uniform(0, 1)
-        I     = cv.addWeighted(I1, alpha, I2, 1-alpha, 0)
-        id    = alpha*id1 + (1-alpha)*id2
-        
-        # print id, id1, id2
-        # print(f'Interpolated id: {id}, id1: {id1}, id2: {id2}')
+        I, id, idx   = self.get_random_image_from_folder(rfolder, list_type)
         
         return I, id, rfolder, idx
 
@@ -204,24 +198,12 @@ class SData:
         if folder not in data:
             raise KeyError(f"Folder '{folder}' not found in data.")
         
-        idx = random.randint(0, len(data[folder].index) - 2)
+        idx = torch.randint(len(data[folder].index) - 1, (1,)).item()
+        # idx = random.randint(0, len(data[folder].index) - 2)
         
-        # print(len(data[rfolder].index))
-        # print(f'Random folder: {rfolder}, Random idx: {idx}')
+        I, id = self.get_random_image_from_folder_idx(folder, idx, list_type)
         
-        I1, id1 = self.get_raw_image(folder, idx, list_type)
-        I2, id2 = self.get_raw_image(folder, idx+1, list_type)
-        
-        # interpolate between I1 and I2. Also, we need to interpolate the id
-        # get a random number between 0 and 1
-        alpha = random.uniform(0, 1)
-        I     = cv.addWeighted(I1, alpha, I2, 1-alpha, 0)
-        id    = alpha*id1 + (1-alpha)*id2
-        
-        # print id, id1, id2
-        # print(f'Interpolated id: {id}, id1: {id1}, id2: {id2}')
-        
-        return I, id
+        return I, id, idx
       
 
     def get_random_image_from_folder_idx(self, folder, idx, list_type):
@@ -239,7 +221,8 @@ class SData:
         
         # interpolate between I1 and I2. Also, we need to interpolate the id
         # get a random number between 0 and 1
-        alpha = random.uniform(0, 1)
+        # alpha = random.uniform(0, 1)
+        alpha = torch.rand(1).item()
         I     = cv.addWeighted(I1, alpha, I2, 1-alpha, 0)
         id    = alpha*id1 + (1-alpha)*id2
         
@@ -251,75 +234,144 @@ class SData:
     
 
     
-# used by tf pipeline
-class DataGenerator(SData):
-    def __init__(self, path, test = [], val = [], ignore = [], 
-                 size=(512, 512), padding=44, npoints=100, inward=40, outward=-24, length = None):
-        '''
-        This class is a subclass of SData. It is used to generate data for the model. 
-        It is an iterator that yields images and their corresponding ids.
-        ''' 
-        super().__init__(path, test=test, val=val, ignore=ignore)
+# # used by tf pipeline
+# class TFDataGenerator(SData):
+#     def __init__(self, path, test = [], val = [], ignore = [], 
+#                  size=(512, 512), padding=44, npoints=100, inward=40, outward=-24, length = None):
+#         '''
+#         This class is a subclass of SData. It is used to generate data for the model. 
+#         It is an iterator that yields images and their corresponding ids.
+#         ''' 
+#         super().__init__(path, test=test, val=val, ignore=ignore)
         
-        self.size        = size
-        self.padding     = padding
-        self.npoints     = npoints
-        self.inward      = inward
-        self.outward     = outward
-        self.length      = length
+#         self.size        = size
+#         self.padding     = padding
+#         self.npoints     = npoints
+#         self.inward      = inward
+#         self.outward     = outward
+#         self.length      = length
         
 
-    def __call__(self, list_type):
-        list_dict = {   'train': self.train_data,
-                        'test': self.test_data,
-                        'val': self.val_data}
-        data = list_dict[list_type]
-        yes_shuffle = False
-        if list_type is 'train':
-            yes_shuffle = True
-        if yes_shuffle:               # Shuffle the folders only if list_type is 'train'
-            shuffled_data = list(data.items())
-            random.shuffle(shuffled_data)
-        else:
-            shuffled_data = data.items()
+#     def __call__(self, list_type):
+#         list_dict = {   'train': self.train_data,
+#                         'test': self.test_data,
+#                         'val': self.val_data}
+#         data = list_dict[list_type]
+#         yes_shuffle = False
+#         if list_type is 'train':
+#             yes_shuffle = True
+#         if yes_shuffle:               # Shuffle the folders only if list_type is 'train'
+#             shuffled_data = list(data.items())
+#             random.shuffle(shuffled_data)
+#         else:
+#             shuffled_data = data.items()
 
-        yes_shuffle = True
-        print(f"yes_shuffle: {yes_shuffle}")
-        print(f"list_type: {list_type}")
+#         yes_shuffle = True
+#         print(f"yes_shuffle: {yes_shuffle}")
+#         print(f"list_type: {list_type}")
 
-        for folder, df in shuffled_data:
-            # Generate a list of indices based on the DataFrame's length
-            # And adjusted to avoid running over the last element
-            indices = list(range(len(df.index) - 1)) 
-            if yes_shuffle: 
-                random.shuffle(indices) 
+#         for folder, df in shuffled_data:
+#             # Generate a list of indices based on the DataFrame's length
+#             # And adjusted to avoid running over the last element
+#             indices = list(range(len(df.index) - 1)) 
+#             if yes_shuffle: 
+#                 random.shuffle(indices) 
             
-            # Iterate over the DataFrame using the shuffled indices
-            for idx in indices:
-                I, id = self.get_random_image_from_folder_idx(folder, idx, list_type)
-                image = TFImage(CVImage(I, 
-                                        id, 
-                                        self.size, 
-                                        self.padding, 
-                                        False, 
-                                        self.npoints, 
-                                        self.inward, 
-                                        self.outward,
-                                        self.length).image, id)
-                if list_type in ['train', 'val']:
-                    image.augment(seed=(random.randint(0, 1000), random.randint(0, 1000)))
-                image.normalize()
-                yield image.I, image.id
+#             # Iterate over the DataFrame using the shuffled indices
+#             for idx in indices:
+#                 I, id = self.get_random_image_from_folder_idx(folder, idx, list_type)
+#                 image = TFImage(CVImage(I, 
+#                                         id, 
+#                                         self.size, 
+#                                         self.padding, 
+#                                         False, 
+#                                         self.npoints, 
+#                                         self.inward, 
+#                                         self.outward,
+#                                         self.length).image, id)
+#                 if list_type in ['train', 'val']:
+#                     image.augment(seed=(random.randint(0, 1000), random.randint(0, 1000)))
+#                 image.normalize()
+#                 yield image.I, image.id
             
-    def __iter__(self, list_type):
-        return self(list_type)
+#     def __iter__(self, list_type):
+#         return self(list_type)
     
-    def __next__(self, list_type):
-        return next(self(list_type))
+#     def __next__(self, list_type):
+#         return next(self(list_type))
         
 
 
 
+# used by torch pipeline
+class TorchDataset(SData, Dataset):
+    def __init__(self, path, test=[], val=[], ignore=[], size=(512, 512), padding=44, npoints=100, inward=40, outward=-24, trunc_width=None, type='train'):
+        super().__init__(path, test=test, val=val, ignore=ignore)
+        self.size      = size
+        self.padding   = padding
+        self.npoints   = npoints
+        self.inward    = inward
+        self.outward   = outward
+        self.trunc_width = trunc_width
+        self.list_type = None
+        self.data      = None
+        self.indices   = None
+        self.type      = type
+        
+        self.set_list_type(type)
+
+    def set_list_type(self, list_type):
+        list_dict = {
+            'train': self.train_data,
+            'test': self.test_data,
+            'val': self.val_data
+        }
+        if list_type not in list_dict:
+            raise ValueError("list_type must be 'train', 'test', or 'val'")
+        
+        self.list_type = list_type
+        self.data      = list_dict[list_type]
+        self.indices   = [(folder, idx) for folder, df in self.data.items() for idx in range(len(df.index) - 1)]
+        if list_type == 'train':
+            random.shuffle(self.indices)
+            # self.indices = [self.indices[i] for i in torch.randperm(len(self.indices))]
+
+    def __len__(self):
+        if self.indices is None:
+            raise ValueError("List type not set. Call set_list_type() before using the dataset.")
+        return len(self.indices)
+
+    def __getitem__(self, index):
+        if self.indices is None:
+            raise ValueError("List type not set. Call set_list_type() before using the dataset.")
+        
+        folder, idx = self.indices[index]
+        I, id = self.get_random_image_from_folder_idx(folder, idx, self.list_type)
+        
+        # Create CVImage instance with all parameters
+        cv_image = CVImage(
+            I=I,
+            id=id,
+            size=self.size,
+            padding=self.padding,
+            plot_images=False,
+            npoints=self.npoints,
+            inward=self.inward,
+            outward=self.outward,
+            trunc_width=self.trunc_width
+        )
+        
+        # Create TorchImage from the processed image
+        image = TorchImage(np.array(cv_image.image, dtype=np.float32), id)
+        
+        if self.list_type in ['train', 'val']:
+            # image.I = image.augment(seed=(random.randint(0, 1000), random.randint(0, 1000)))
+            # image.I = image.augment(seed=(torch.randint(0, 1000, (1,)).item(), torch.randint(0, 1000, (1,)).item()))
+            pass
+        
+        image.I = image.normalize()
+        return image.I, image.id
+        
         
 
 if __name__ == "__main__":

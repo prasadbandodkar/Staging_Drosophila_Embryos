@@ -6,28 +6,47 @@ import numpy as np
 import scipy.ndimage as nd
 from skimage import measure
 import matplotlib.pyplot as plt
+import torch
 
-from functions import *
+from Python.functions import *
 
 
 class EmbryoImage:
-    def __init__(self, I, id):
+    def __init__(self, I, id, **kwargs):
+        
+        # Inputs
+        #
+        # image
         self.I          = I
         self.id         = id
+        # size and padding are used for preprocessing. First, the image is resized to size
+        # and then a border of padding pixels is added to all sides of the image.   
+        #
+        self.size          = kwargs.get('size', (512, 512))
+        self.padding       = kwargs.get('padding', 44)
+   
+        # plot_images is a boolean to plot images during processing
+        self.plot_images   = kwargs.get('plot_images', False)
+
+        # npoints is the number of points to use for the border
+        self.npoints       = kwargs.get('npoints', 100)
+       
+        # inward and outward are the lengths to extend the border inward and outward
+        self.inward        = kwargs.get('inward', 40)
+        self.outward       = kwargs.get('outward', -24)
+        
+        # Outputs
+        #
         self.height_org = self.I.shape[0]
         self.width_org  = self.I.shape[1]
         
         # segmentation 
         self.Iseg   = np.empty((0, 0))
         self.Ilabel = np.empty((0, 0))
-        
-        # boundary
-        self.npoints       = 0
-        self.npoints_org   = 0
-        self.inward        = 0
-        self.outward       = 0
-        self.depthInImage  = 0
-        self.depthInEmbryo = 0
+               
+        # outputs
+        self.npoints_org   = 0      # from original segmentation
+        self.depthInImage  = np.abs(self.outward) + np.abs(self.inward)
         self.x             = np.empty(0)
         self.y             = np.empty(0)
         self.xext          = self.x
@@ -36,13 +55,13 @@ class EmbryoImage:
         self.yint          = self.y
     
 
-    def preprocess(self, size = (256, 256), padding = 22):
+    def preprocess(self):
         """
         This method preprocesses the image by resizing it to 256x256 and adding a border of 22 pixels.
         The border is filled with the constant value of 0.
         """
-        self.I      = cv.resize(self.I, size, interpolation=cv.INTER_AREA)
-        self.I      = cv.copyMakeBorder(self.I, padding, padding, padding, padding, cv.BORDER_REPLICATE)     # type: ignore
+        self.I      = cv.resize(self.I, self.size, interpolation=cv.INTER_AREA)
+        self.I      = cv.copyMakeBorder(self.I, self.padding, self.padding, self.padding, self.padding, cv.BORDER_REPLICATE)     # type: ignore
         
         # properties of the image
         self.height = self.I.shape[0]
@@ -122,7 +141,7 @@ class EmbryoImage:
         # print('done')
   
     
-    def segment_embryo_image(self, plot_images=False):
+    def segment_embryo_image(self):
         Itmp = self.I.copy()
         
         # Normalize the image between its max and min values
@@ -137,11 +156,10 @@ class EmbryoImage:
         se = cv.getStructuringElement(cv.MORPH_ELLIPSE, (9, 9))
         Itmp = cv.morphologyEx(Itmp, cv.MORPH_CLOSE, se)     # type: ignore
         
-        if plot_images:
+        if self.plot_images:
             plt.subplot(2, 4, 1)
             plt.imshow(Itmp, cmap='gray')
             plt.title('After Open and Closing')
-        
         
         
         # Next, binarize the image using Adaptive Thresholding
@@ -150,7 +168,7 @@ class EmbryoImage:
         # _, Itmp = cv.threshold(Itmp, 128, 255, cv.THRESH_BINARY)
         Itmp = cv.bitwise_not(Itmp) 
 
-        if plot_images:
+        if self.plot_images:
             plt.subplot(2, 4, 3)
             plt.imshow(Itmp, cmap='gray')
             plt.title('After Adaptive Thresholding')
@@ -159,7 +177,7 @@ class EmbryoImage:
         se = cv.getStructuringElement(cv.MORPH_ELLIPSE, (33, 33))
         Itmp = cv.morphologyEx(Itmp, cv.MORPH_CLOSE, se)     # type: ignore
 
-        if plot_images:
+        if self.plot_images:
             plt.subplot(2, 4, 4)
             plt.imshow(Itmp, cmap='gray')
             plt.title('After Closing')
@@ -178,7 +196,7 @@ class EmbryoImage:
         mask = np.zeros((h+2, w+2), np.uint8)
         cv.floodFill(Itmp, mask, (0, 0), 255)     # type: ignore
 
-        if plot_images:
+        if self.plot_images:
             plt.subplot(2, 4, 6)
             plt.imshow(mask, cmap='gray')
             plt.title('Mask: After Flood Fill')
@@ -194,12 +212,12 @@ class EmbryoImage:
         max_label = unique[np.argmax(counts)]
         Itmp = np.where(labels == max_label, 255, 0)
 
-        if plot_images:
+        if self.plot_images:
             plt.subplot(2, 4, 7)
             plt.imshow(Itmp, cmap='gray')
             plt.title('After Finding Biggest Connected Component')
 
-        if plot_images:
+        if self.plot_images:
             plt.tight_layout()
             plt.show()
         
@@ -208,8 +226,7 @@ class EmbryoImage:
         # print('done')
         
         
-    def border_finder(self, npoints = 100):
-        self.npoints = npoints 
+    def border_finder(self):
         
         # Convert the image to CV_8UC1
         self.Ilabel = cv.convertScaleAbs(self.Ilabel)
@@ -243,35 +260,40 @@ class EmbryoImage:
         nsmooth = int(0.10 * max_contour.shape[0])                      # 5% of the number of points
         x       = nd.uniform_filter1d(x, size=nsmooth, mode='wrap')
         y       = nd.uniform_filter1d(y, size=nsmooth, mode='wrap')
-        x, y, _ = make_points_uniform(x, y, n = npoints)
+        x, y, _ = make_points_uniform(x, y, n = self.npoints)
         x       = nd.uniform_filter1d(x, size=3, mode='wrap')
         y       = nd.uniform_filter1d(y, size=3, mode='wrap')
-        x, y, _ = make_points_uniform(x, y, n = npoints)
+        x, y, _ = make_points_uniform(x, y, n = self.npoints)
         
         self.x = x
         self.y = y
     
     
-    def extend_border(self, inward = 15, outward = -5):
+    def extend_border(self):
         # extend border outward
-        self.xext, self.yext = find_normals_inward(x = self.x, y = self.y, length = outward)
+        self.xext, self.yext = find_normals_inward(x = self.x, y = self.y, length = self.outward)
         
         # extend border inward
-        self.xint, self.yint = find_normals_inward(x = self.x, y = self.y, length = inward)
+        self.xint, self.yint = find_normals_inward(x = self.x, y = self.y, length = self.inward)
         
-        self.inward = inward
-        self.outward = outward
-        self.depthInImage = np.abs(outward) + np.abs(inward)
      
     
 
 class NuclearLayer(EmbryoImage):
-    def __init__(self, I, id):
-        super().__init__(I, id)
+    def __init__(self, I, id, **kwargs):
+        super().__init__(I, id, **kwargs)
         self.Inl = np.empty((0, 0))
+        self.unroll()
     
-    def unroll(self, x_nuc=None, y_nuc=None):
-        if x_nuc is None or y_nuc is None:
+    def unroll(self):
+        if self.xext.size == 0 or self.yext.size == 0:
+            self.preprocess()
+            self.segment_embryo_image()
+            self.border_finder()
+            self.extend_border()
+            x_nuc = self.xext
+            y_nuc = self.yext
+        else:
             x_nuc = self.xext
             y_nuc = self.yext
 
@@ -315,7 +337,7 @@ class NuclearLayer(EmbryoImage):
         ustart = 0
 
         for i in range(ns):
-            # print(i)
+
             I1 = I[yL[i]:yU[i], xL[i]:xU[i], :]
             
             # plot I1
@@ -326,10 +348,6 @@ class NuclearLayer(EmbryoImage):
             inpts = np.float32(np.column_stack((np.transpose(X_t1[i, :]), np.transpose(Y_t1[i, :]))))
             op = np.array([[0, 0], [ds[i], 0], [0, depthInImage], [ds[i], depthInImage]])
             outpts = np.float32(op)
-            
-            # print inputs and outputs
-            # print(inpts)
-            # print(outpts)
 
             M = cv.getPerspectiveTransform(inpts, outpts)       # type: ignore
 
@@ -349,49 +367,28 @@ class NuclearLayer(EmbryoImage):
             ustart = ufinish
         
         self.Inl = U
-        # print dtype of Inl and U
-        # print(self.Inl.dtype)
-        # print(U.dtype)
         
 
 
 
 class CVImage(NuclearLayer):
-    def __init__(   self, 
-                    I, 
-                    id, 
-                    size = (512, 512), 
-                    padding = 44,
-                    plot_images = False, 
-                    npoints = 100,
-                    inward = 40,
-                    outward = -24,
-                    length = None):
-        super().__init__(I, id)
-        self.image       = []
-        self.id          = id
-        self.size        = size
-        self.padding     = padding
-        self.plot_images = plot_images
-        self.npoints     = npoints
-        self.inward      = inward
-        self.outward     = outward
-        self.length      = length
+    def __init__(self, I, id, **kwargs):
+        super().__init__(I, id, **kwargs)
+        self.trunc_width = kwargs.get('trunc_width', None)
+        self.image  = self.get_unrolled_image()
         
-        self.get_unrolled_image()
     
     def get_unrolled_image(self):
-        self.preprocess(size = self.size, padding = self.padding)
-        self.segment_embryo_image(plot_images=self.plot_images)    
-        self.border_finder(npoints = self.npoints)
-        self.extend_border(inward = self.inward, outward = self.outward)
-        self.unroll(self.x, self.y)
-    
-        # If length is not specified, use the full width of the unrolled image
-        length = self.length
-        if length is None:
-            length = self.Inl.shape[1]
-        self.image = self.Inl[:, :length, :]
+        Inl = self.Inl
+        
+        if self.trunc_width is not None:
+            max_start = Inl.shape[1] - self.trunc_width
+            start = np.random.randint(0, max_start + 1) if max_start > 0 else 0
+            image = Inl[:, start:start + self.trunc_width, :]
+        else:
+            image = Inl
+        
+        return image
 
         
         
